@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timecop — Snappy Continuous Time Tracker</title>
+  <!-- SEO & Styling -->
+  <meta name="description" content="A high-fidelity, continuous minute-to-minute task tracking web application. Switch projects with a single click, manage unbroken punch chains, and analyze weekly statistics.">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Style -->
+  <script type="module" crossorigin src="./assets/index-O2a_pGhT.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CtqGsHdZ.css">
+</head>
+<body>
+
+  <!-- App Wrapper -->
+  <div class="app-container">
+
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-orb">
+          <i data-lucide="shield-alert" class="logo-icon"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Time<span>cop</span></h1>
+          <span class="brand-tagline">Continuous Punch Engine</span>
+        </div>
+      </div>
+
+      <!-- Live Clock & Status -->
+      <div class="header-clock-panel">
+        <span id="live-date">Thursday, May 21</span>
+        <span id="live-time" class="pulse-seconds">16:54:00</span>
+      </div>
+
+      <!-- Utility Actions -->
+      <div class="header-actions">
+        <button id="btn-repair" class="btn btn-secondary-outline" title="Validate and Repair Punch Chain Continuity">
+          <i data-lucide="wrench"></i>
+          <span>Repair Chain</span>
+        </button>
+        <button id="btn-sync-panel" class="btn btn-secondary" title="Import/Export Database Sync">
+          <i data-lucide="database"></i>
+          <span>Backup & Sync</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Grid Dashboard Layout -->
+    <main class="dashboard-grid">
+
+      <!-- COLUMN 1: Active Punch Hero Widget & Project Switcher -->
+      <section class="dashboard-col left-col">
+
+        <!-- Active Punch Hero (Timer Panel) -->
+        <article class="card hero-timer-card glass">
+          <div class="glow-effect"></div>
+          <div class="card-header-compact">
+            <span class="card-subtitle">Active Punch</span>
+            <div id="active-project-badge" class="badge gradient-idle">Idle</div>
+          </div>
+          
+          <div class="hero-timer-display">
+            <!-- Circular Animated Visual SVG Ring -->
+            <div class="timer-visual-ring">
+              <svg viewBox="0 0 100 100">
+                <circle class="ring-bg" cx="50" cy="50" r="44"></circle>
+                <circle id="timer-progress-ring" class="ring-fill" cx="50" cy="50" r="44" stroke-dasharray="276" stroke-dashoffset="276"></circle>
+              </svg>
+              <!-- Live Timer Value -->
+              <div class="timer-values">
+                <div id="active-timer-hms">00:00:00</div>
+                <div class="timer-units">hours &bull; mins &bull; secs</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-timer-controls">
+            <button id="btn-toggle-punch" class="btn btn-primary btn-large" title="Toggle active tracking state">
+              <i data-lucide="play" id="icon-toggle-punch"></i>
+              <span id="text-toggle-punch">Start Tracking</span>
+            </button>
+            <button id="btn-switch-idle" class="btn btn-secondary-outline" title="Switch immediately to Idle state">
+              <i data-lucide="pause-circle"></i>
+              <span>Pause to Idle</span>
+            </button>
+          </div>
+        </article>
+
+        <!-- Project Switcher Panel -->
+        <article class="card project-switcher-card glass">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Project Switcher</h2>
+              <p class="card-subtitle">One-click to switch punches. Drag to reorder.</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button id="btn-toggle-archived" class="btn btn-secondary-outline btn-sm" title="Toggle Visibility of Archived Projects">
+                <i data-lucide="archive"></i>
+                <span>Show Archived</span>
+              </button>
+              <button id="btn-add-project" class="btn btn-primary btn-sm">
+                <i data-lucide="plus"></i>
+                <span>Add Project</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Project Cards Grid -->
+          <div id="project-grid" class="project-grid-container">
+            <!-- Dynamically populated project cards go here -->
+          </div>
+        </article>
+
+      </section>
+
+      <!-- COLUMN 2: Weekly Analytics & Continuous Timeline -->
+      <section class="dashboard-col right-col">
+
+        <!-- Weekly Summary Analytics -->
+        <article class="card weekly-summary-card glass">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Weekly Summary</h2>
+              <p class="card-subtitle">Productivity and daily totals (excluding Idle)</p>
+            </div>
+            <div class="total-hours-container">
+              <span class="total-hours-number" id="stats-total-hours">0.0h</span>
+              <span class="total-hours-label">Productive Time</span>
+            </div>
+          </div>
+
+          <div class="weekly-metrics-grid">
+            <!-- Weekly Daily Bar Chart -->
+            <div class="bar-chart-container">
+              <span class="section-micro-title">Daily Activity Breakdown</span>
+              <div class="bar-chart" id="weekly-bar-chart">
+                <!-- Dynamically populated day columns -->
+              </div>
+            </div>
+
+            <!-- SVG Category Donut Breakdown -->
+            <div class="donut-chart-container">
+              <span class="section-micro-title">Productive Categories</span>
+              <div class="donut-chart-wrapper">
+                <svg id="donut-chart-svg" viewBox="0 0 100 100">
+                  <!-- Generated dynamic sections -->
+                </svg>
+                <div id="donut-chart-legend" class="donut-legend">
+                  <!-- Dynamically populated legend -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Continuous Day Timeline -->
+        <article class="card timeline-card glass">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Today's Punch Timeline</h2>
+              <p class="card-subtitle">A seamless continuous chronological view of your day</p>
+            </div>
+          </div>
+          <div class="timeline-visual-bar" id="timeline-visual-bar-today">
+            <!-- Continuous color block chunks representing punches of the day -->
+          </div>
+          <div class="timeline-legend" id="timeline-visual-legend">
+            <!-- Time tick indicators 08:00 ... 12:00 ... 18:00 -->
+          </div>
+        </article>
+
+        <!-- Punch Editor Drawer / Table -->
+        <article class="card punch-editor-card glass">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Punch Chain Editor</h2>
+              <p class="card-subtitle">Modify punch boundaries. Surrounding blocks auto-adjust to maintain continuity.</p>
+            </div>
+            <div class="punch-editor-filters">
+              <button id="btn-prev-day" class="btn btn-secondary-outline btn-icon" title="Previous Day"><i data-lucide="chevron-left"></i></button>
+              <span id="punch-editor-date" class="editor-current-date">Today</span>
+              <button id="btn-next-day" class="btn btn-secondary-outline btn-icon" title="Next Day"><i data-lucide="chevron-right"></i></button>
+            </div>
+          </div>
+
+          <div class="punch-editor-table-container">
+            <table class="punch-editor-table">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Start Time</th>
+                  <th>End Time</th>
+                  <th>Duration</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="punch-editor-rows">
+                <!-- Dynamically populated punch rows -->
+              </tbody>
+            </table>
+          </div>
+          <div class="punch-editor-footer">
+            <button id="btn-add-punch" class="btn btn-secondary-outline btn-sm">
+              <i data-lucide="plus-circle"></i>
+              <span>Insert Custom Punch</span>
+            </button>
+          </div>
+        </article>
+
+      </section>
+
+    </main>
+
+  </div> <!-- End App Wrapper -->
+
+
+  <!-- MODAL: ADD/EDIT PROJECT -->
+  <div id="project-modal" class="modal-overlay hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3 id="project-modal-title" class="modal-title">Add Project</h3>
+        <button id="btn-close-project-modal" class="btn-close"><i data-lucide="x"></i></button>
+      </div>
+      <form id="project-form" class="modal-form">
+        <input type="hidden" id="modal-project-id">
+        
+        <div class="form-group">
+          <label for="project-name">Project Name</label>
+          <input type="text" id="project-name" required placeholder="e.g. Code Refactoring, Design Review..." maxlength="40">
+        </div>
+
+        <div class="form-group">
+          <label for="project-category">Category / Tag</label>
+          <input type="text" id="project-category" required placeholder="e.g. Development, Design, Meeting, Personal..." list="categories-list" maxlength="20">
+          <datalist id="categories-list">
+            <option value="Development"></option>
+            <option value="Design"></option>
+            <option value="Meeting"></option>
+            <option value="Operations"></option>
+            <option value="Personal"></option>
+            <option value="Learning"></option>
+          </datalist>
+        </div>
+
+        <div class="form-group">
+          <label>Accent Design Gradient</label>
+          <div class="gradient-picker-grid">
+            <label class="gradient-option-label">
+              <input type="radio" name="project-gradient" value="gradient-cyan-blue" checked>
+              <span class="gradient-preview gradient-cyan-blue"></span>
+              <span class="gradient-name">Cyber Cyan</span>
+            </label>
+            <label class="gradient-option-label">
+              <input type="radio" name="project-gradient" value="gradient-pink-rose">
+              <span class="gradient-preview gradient-pink-rose"></span>
+              <span class="gradient-name">Neon Rose</span>
+            </label>
+            <label class="gradient-option-label">
+              <input type="radio" name="project-gradient" value="gradient-amber-orange">
+              <span class="gradient-preview gradient-amber-orange"></span>
+              <span class="gradient-name">Gold Dusk</span>
+            </label>
+            <label class="gradient-option-label">
+              <input type="radio" name="project-gradient" value="gradient-violet-flare">
+              <span class="gradient-preview gradient-violet-flare"></span>
+              <span class="gradient-name">Violet Flare</span>
+            </label>
+            <label class="gradient-option-label">
+              <input type="radio" name="project-gradient" value="gradient-forest-mint">
+              <span class="gradient-preview gradient-forest-mint"></span>
+              <span class="gradient-name">Forest Mint</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-project" class="btn btn-secondary-outline">Cancel</button>
+          <button type="submit" id="btn-save-project" class="btn btn-primary">Save Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- DRAWER: BACKUP & SYNC PANEL -->
+  <div id="sync-drawer" class="drawer-overlay hidden">
+    <div class="drawer-content glass">
+      <div class="drawer-header">
+        <h3>Backup & Sync Database</h3>
+        <button id="btn-close-sync-drawer" class="btn-close"><i data-lucide="x"></i></button>
+      </div>
+      
+      <div class="drawer-body">
+        <p class="drawer-description">
+          Since Timecop runs entirely client-side for maximum speed, all project data is safely stored in this browser's <code class="code-highlight">localStorage</code>. 
+          Use this panel to back up your data or synchronize it with other devices.
+        </p>
+
+        <!-- Export Block -->
+        <div class="sync-section">
+          <h4><i data-lucide="download" class="section-icon"></i> Export Database</h4>
+          <p class="section-desc">Download your entire project history as a structured JSON file.</p>
+          <button id="btn-export-json" class="btn btn-primary btn-full">
+            <i data-lucide="file-down"></i>
+            <span>Export database.json</span>
+          </button>
+        </div>
+
+        <!-- Import Block -->
+        <div class="sync-section">
+          <h4><i data-lucide="upload" class="section-icon"></i> Import Database</h4>
+          <p class="section-desc">Upload a previously exported database.json file. <span class="danger-text">Warning: This will overwrite your current browser data!</span></p>
+          <div class="file-upload-wrapper">
+            <input type="file" id="import-file-input" accept=".json" class="file-input-hidden">
+            <button id="btn-trigger-upload" class="btn btn-secondary-outline btn-full">
+              <i data-lucide="file-up"></i>
+              <span>Select & Upload JSON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Copy String Sync Block -->
+        <div class="sync-section">
+          <h4><i data-lucide="copy" class="section-icon"></i> Quick Sync Token</h4>
+          <p class="section-desc">Perfect for quick mobile-to-desktop transfer. Copy this text payload and paste it on another device.</p>
+          <textarea id="sync-payload-textarea" class="sync-textarea" readonly placeholder="Generating sync token..."></textarea>
+          <div class="sync-btn-row">
+            <button id="btn-copy-sync-token" class="btn btn-secondary-outline btn-half">
+              <i data-lucide="clipboard"></i>
+              <span>Copy Token</span>
+            </button>
+            <button id="btn-paste-sync-token" class="btn btn-secondary btn-half">
+              <i data-lucide="clipboard-paste"></i>
+              <span>Paste Token</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dangerous Resets -->
+        <div class="sync-section danger-section">
+          <h4><i data-lucide="trash-2" class="section-icon danger-text"></i> Reset Database</h4>
+          <p class="section-desc">Completely erase all logs, historical punches, and custom projects. Restores the default Idle setup.</p>
+          <button id="btn-reset-db" class="btn btn-danger btn-full">
+            <i data-lucide="shield-alert"></i>
+            <span>Nuke All Data</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Wrapper -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Sound Toggle Utility -->
+  <div class="sound-toggle-badge" id="btn-toggle-sound" title="Toggle Satisfying UI Clicks">
+    <i data-lucide="volume-2" id="sound-icon"></i>
+  </div>
+
+  <!-- Load Client JS Module -->
+</body>
+</html>
