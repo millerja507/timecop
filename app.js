@@ -1291,14 +1291,16 @@ const UI = {
     const btn = document.getElementById('btn-toggle-archived');
     if (!btn) return;
     
+    const icon = btn.querySelector('i') || btn.querySelector('svg');
+    const span = btn.querySelector('span');
     if (state.showArchived) {
       btn.className = "btn btn-primary btn-sm";
-      btn.querySelector('span').textContent = "Hide Archived";
-      btn.querySelector('i').setAttribute('data-lucide', 'archive-restore');
+      if (span) span.textContent = "Hide Archived";
+      if (icon) icon.setAttribute('data-lucide', 'archive-restore');
     } else {
       btn.className = "btn btn-secondary-outline btn-sm";
-      btn.querySelector('span').textContent = "Show Archived";
-      btn.querySelector('i').setAttribute('data-lucide', 'archive');
+      if (span) span.textContent = "Show Archived";
+      if (icon) icon.setAttribute('data-lucide', 'archive');
     }
     lucide.createIcons();
   },
@@ -1468,13 +1470,13 @@ const GDriveSync = {
     if (visBtn) {
       visBtn.addEventListener('click', () => {
         const input = document.getElementById('gdrive-client-id');
-        const icon = visBtn.querySelector('i');
+        const icon = visBtn.querySelector('i') || visBtn.querySelector('svg');
         if (input.type === 'password') {
           input.type = 'text';
-          icon.setAttribute('data-lucide', 'eye-off');
+          if (icon) icon.setAttribute('data-lucide', 'eye-off');
         } else {
           input.type = 'password';
-          icon.setAttribute('data-lucide', 'eye');
+          if (icon) icon.setAttribute('data-lucide', 'eye');
         }
         lucide.createIcons();
       });
@@ -1537,7 +1539,7 @@ const GDriveSync = {
   updateUI() {
     const badge = document.getElementById('cloud-sync-badge');
     const badgeText = badge ? badge.querySelector('span') : null;
-    const badgeIcon = badge ? badge.querySelector('i') : null;
+    const badgeIcon = badge ? (badge.querySelector('i') || badge.querySelector('svg')) : null;
 
     const setupArea = document.getElementById('gdrive-setup-area');
     const statusArea = document.getElementById('gdrive-status-area');
@@ -1547,20 +1549,20 @@ const GDriveSync = {
     if (badge) {
       if (state.syncStatus === 'disabled') {
         badge.className = 'cloud-sync-badge badge-disabled';
-        badgeText.textContent = 'Sync Off';
-        badgeIcon.setAttribute('data-lucide', 'cloud-off');
+        if (badgeText) badgeText.textContent = 'Sync Off';
+        if (badgeIcon) badgeIcon.setAttribute('data-lucide', 'cloud-off');
       } else if (state.syncStatus === 'connected') {
         badge.className = 'cloud-sync-badge badge-connected';
-        badgeText.textContent = 'Synced';
-        badgeIcon.setAttribute('data-lucide', 'cloud');
+        if (badgeText) badgeText.textContent = 'Synced';
+        if (badgeIcon) badgeIcon.setAttribute('data-lucide', 'cloud');
       } else if (state.syncStatus === 'syncing') {
         badge.className = 'cloud-sync-badge badge-syncing';
-        badgeText.textContent = 'Syncing...';
-        badgeIcon.setAttribute('data-lucide', 'refresh-cw');
+        if (badgeText) badgeText.textContent = 'Syncing...';
+        if (badgeIcon) badgeIcon.setAttribute('data-lucide', 'refresh-cw');
       } else if (state.syncStatus === 'error') {
         badge.className = 'cloud-sync-badge badge-error';
-        badgeText.textContent = 'Sync Error';
-        badgeIcon.setAttribute('data-lucide', 'alert-triangle');
+        if (badgeText) badgeText.textContent = 'Sync Error';
+        if (badgeIcon) badgeIcon.setAttribute('data-lucide', 'alert-triangle');
       }
       lucide.createIcons();
     }
