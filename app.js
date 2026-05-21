@@ -1603,7 +1603,7 @@ const GDriveSync = {
     try {
       const client = google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email',
         callback: async (tokenResponse) => {
           if (tokenResponse.error) {
             console.error("GIS connection error: ", tokenResponse);
@@ -1691,7 +1691,7 @@ const GDriveSync = {
     try {
       const client = google.accounts.oauth2.initTokenClient({
         client_id: state.googleClientId,
-        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email',
         prompt: 'none', // background refresh with no pop-up
         callback: (tokenResponse) => {
           if (tokenResponse.access_token) {
@@ -1729,7 +1729,17 @@ const GDriveSync = {
         { headers }
       );
       
-      if (!searchRes.ok) throw new Error("Failed to query appDataFolder");
+      if (!searchRes.ok) {
+        let errMsg = "Failed to query appDataFolder";
+        try {
+          const errData = await searchRes.json();
+          if (errData && errData.error && errData.error.message) {
+            errMsg = errData.error.message;
+            console.error("Google Drive API Error details:", errData.error);
+          }
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
       
       const searchData = await searchRes.json();
       const files = searchData.files || [];
@@ -1810,7 +1820,17 @@ const GDriveSync = {
       body: form
     });
     
-    if (!res.ok) throw new Error("Upload failed");
+    if (!res.ok) {
+      let errMsg = "Upload failed";
+      try {
+        const errData = await res.json();
+        if (errData && errData.error && errData.error.message) {
+          errMsg = errData.error.message;
+          console.error("Google Drive API upload error:", errData.error);
+        }
+      } catch (e) {}
+      throw new Error(errMsg);
+    }
   },
 
   async updateExistingBackup(fileId, payload, headers) {
@@ -1823,7 +1843,17 @@ const GDriveSync = {
       body: JSON.stringify(payload)
     });
     
-    if (!res.ok) throw new Error("Patch update failed");
+    if (!res.ok) {
+      let errMsg = "Patch update failed";
+      try {
+        const errData = await res.json();
+        if (errData && errData.error && errData.error.message) {
+          errMsg = errData.error.message;
+          console.error("Google Drive API patch error:", errData.error);
+        }
+      } catch (e) {}
+      throw new Error(errMsg);
+    }
   }
 };
 
