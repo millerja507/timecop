@@ -63,6 +63,12 @@ let state = {
   activePunchId: null,
   selectedDay: new Date(), // For the punch editor
   showArchived: false,
+  googleClientId: localStorage.getItem('tc_gdrive_client_id') || '',
+  googleAccessToken: localStorage.getItem('tc_gdrive_token') || '',
+  googleTokenExpiry: parseInt(localStorage.getItem('tc_gdrive_token_expiry') || '0', 10),
+  googleUserEmail: localStorage.getItem('tc_gdrive_user_email') || '',
+  syncStatus: 'disabled', // 'disabled' | 'idle' | 'syncing' | 'connected' | 'error'
+  lastUpdated: parseInt(localStorage.getItem('tc_last_updated') || Date.now().toString(), 10),
 };
 
 // Default Project Definitions
@@ -106,11 +112,16 @@ const DB = {
   },
   
   save() {
+    state.lastUpdated = Date.now();
+    localStorage.setItem('tc_last_updated', state.lastUpdated);
     localStorage.setItem('timecop_db', JSON.stringify({
       projects: state.projects,
       punches: state.punches,
       activePunchId: state.activePunchId
     }));
+    if (typeof GDriveSync !== 'undefined') {
+      GDriveSync.triggerAutoSync();
+    }
   },
   
   loadDefaults() {
@@ -457,6 +468,9 @@ const UI = {
     
     // Initial Render
     this.renderAll();
+    
+    // Initialize Google Drive Sync Integration
+    GDriveSync.init();
   },
   
   bindEvents() {
@@ -1428,6 +1442,386 @@ const UI = {
         this.showToast("Reset aborted.");
       }
     }
+  }
+};
+
+// --- Google Drive Cloud Sync Module ---
+const GDriveSync = {
+  debounceTimer: null,
+  
+  init() {
+    // Connect listener for accordion toggle
+    const helpBtn = document.getElementById('btn-toggle-gdrive-help');
+    if (helpBtn) {
+      helpBtn.addEventListener('click', () => {
+        const content = document.getElementById('gdrive-help-content');
+        const arrow = helpBtn.querySelector('.accordion-arrow');
+        if (content) {
+          content.classList.toggle('hidden');
+          arrow.classList.toggle('rotated');
+        }
+      });
+    }
+
+    // Toggle Client ID visibility
+    const visBtn = document.getElementById('btn-toggle-client-id-vis');
+    if (visBtn) {
+      visBtn.addEventListener('click', () => {
+        const input = document.getElementById('gdrive-client-id');
+        const icon = visBtn.querySelector('i');
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+          input.type = 'password';
+          icon.setAttribute('data-lucide', 'eye');
+        }
+        lucide.createIcons();
+      });
+    }
+
+    // Connect trigger button
+    const connectBtn = document.getElementById('btn-connect-gdrive');
+    if (connectBtn) {
+      connectBtn.addEventListener('click', () => this.connect());
+    }
+
+    // Disconnect button
+    const disconnectBtn = document.getElementById('btn-disconnect-gdrive');
+    if (disconnectBtn) {
+      disconnectBtn.addEventListener('click', () => this.disconnect());
+    }
+
+    // Sync Now button
+    const syncBtn = document.getElementById('btn-sync-gdrive-now');
+    if (syncBtn) {
+      syncBtn.addEventListener('click', () => {
+        playSound('click');
+        this.sync(true);
+      });
+    }
+
+    // Fill configured Client ID in input
+    const input = document.getElementById('gdrive-client-id');
+    if (input && state.googleClientId) {
+      input.value = state.googleClientId;
+    }
+
+    // Hook cloud badge click
+    const badge = document.getElementById('cloud-sync-badge');
+    if (badge) {
+      badge.addEventListener('click', () => {
+        playSound('click');
+        document.getElementById('sync-drawer').classList.remove('hidden');
+      });
+    }
+
+    // Recover previous active connection if tokens exist and aren't expired
+    if (state.googleClientId && state.googleAccessToken) {
+      if (Date.now() < state.googleTokenExpiry) {
+        state.syncStatus = 'connected';
+        this.updateUI();
+        // Silent initial sync
+        this.sync();
+      } else {
+        // Token expired, silently request a new one in background or set status to error/disconnected
+        state.syncStatus = 'disabled';
+        this.updateUI();
+      }
+    } else {
+      state.syncStatus = 'disabled';
+      this.updateUI();
+    }
+  },
+
+  updateUI() {
+    const badge = document.getElementById('cloud-sync-badge');
+    const badgeText = badge ? badge.querySelector('span') : null;
+    const badgeIcon = badge ? badge.querySelector('i') : null;
+
+    const setupArea = document.getElementById('gdrive-setup-area');
+    const statusArea = document.getElementById('gdrive-status-area');
+    const emailSpan = document.getElementById('gdrive-user-email');
+
+    // Update state based badge
+    if (badge) {
+      if (state.syncStatus === 'disabled') {
+        badge.className = 'cloud-sync-badge badge-disabled';
+        badgeText.textContent = 'Sync Off';
+        badgeIcon.setAttribute('data-lucide', 'cloud-off');
+      } else if (state.syncStatus === 'connected') {
+        badge.className = 'cloud-sync-badge badge-connected';
+        badgeText.textContent = 'Synced';
+        badgeIcon.setAttribute('data-lucide', 'cloud');
+      } else if (state.syncStatus === 'syncing') {
+        badge.className = 'cloud-sync-badge badge-syncing';
+        badgeText.textContent = 'Syncing...';
+        badgeIcon.setAttribute('data-lucide', 'refresh-cw');
+      } else if (state.syncStatus === 'error') {
+        badge.className = 'cloud-sync-badge badge-error';
+        badgeText.textContent = 'Sync Error';
+        badgeIcon.setAttribute('data-lucide', 'alert-triangle');
+      }
+      lucide.createIcons();
+    }
+
+    // Update Drawer view
+    if (state.syncStatus === 'disabled') {
+      if (setupArea) setupArea.classList.remove('hidden');
+      if (statusArea) statusArea.classList.add('hidden');
+    } else {
+      if (setupArea) setupArea.classList.add('hidden');
+      if (statusArea) statusArea.classList.remove('hidden');
+      if (emailSpan) {
+        emailSpan.textContent = state.googleUserEmail || 'Google Drive Active';
+      }
+    }
+  },
+
+  async connect() {
+    playSound('click');
+    const clientId = document.getElementById('gdrive-client-id').value.trim();
+    if (!clientId) {
+      UI.showToast("Please enter a valid Google OAuth Client ID first!", "error");
+      return;
+    }
+
+    state.googleClientId = clientId;
+    localStorage.setItem('tc_gdrive_client_id', clientId);
+
+    // Verify GIS client library is loaded
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+      UI.showToast("Google Identity Services script not loaded. Check connection.", "error");
+      return;
+    }
+
+    state.syncStatus = 'syncing';
+    this.updateUI();
+
+    try {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        callback: async (tokenResponse) => {
+          if (tokenResponse.error) {
+            console.error("GIS connection error: ", tokenResponse);
+            state.syncStatus = 'error';
+            this.updateUI();
+            UI.showToast("Login failed: " + tokenResponse.error, "error");
+            return;
+          }
+
+          if (tokenResponse.access_token) {
+            state.googleAccessToken = tokenResponse.access_token;
+            state.googleTokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
+            
+            localStorage.setItem('tc_gdrive_token', state.googleAccessToken);
+            localStorage.setItem('tc_gdrive_token_expiry', state.googleTokenExpiry);
+
+            // Fetch user info from Google to display active email
+            try {
+              const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${state.googleAccessToken}` }
+              });
+              if (profileRes.ok) {
+                const profile = await profileRes.json();
+                state.googleUserEmail = profile.email || 'Google Active';
+                localStorage.setItem('tc_gdrive_user_email', state.googleUserEmail);
+              }
+            } catch (err) {
+              console.warn("Could not fetch user profile info, proceeding anyway.", err);
+              state.googleUserEmail = 'Connected Account';
+            }
+
+            state.syncStatus = 'connected';
+            this.updateUI();
+            UI.showToast("Google Drive connected successfully!", "success");
+
+            // Perform initial full two-way sync
+            await this.sync(true);
+          }
+        },
+      });
+
+      client.requestAccessToken({ prompt: 'consent' });
+    } catch (e) {
+      console.error(e);
+      state.syncStatus = 'error';
+      this.updateUI();
+      UI.showToast("OAuth client initialization failed.", "error");
+    }
+  },
+
+  disconnect() {
+    playSound('click');
+    state.googleAccessToken = '';
+    state.googleTokenExpiry = 0;
+    state.googleUserEmail = '';
+    state.syncStatus = 'disabled';
+    
+    localStorage.removeItem('tc_gdrive_token');
+    localStorage.removeItem('tc_gdrive_token_expiry');
+    localStorage.removeItem('tc_gdrive_user_email');
+    
+    this.updateUI();
+    UI.showToast("Google Drive disconnected.", "success");
+  },
+
+  triggerAutoSync() {
+    if (state.syncStatus !== 'connected' && state.syncStatus !== 'syncing') return;
+    
+    // Check if token expired
+    if (Date.now() >= state.googleTokenExpiry) {
+      this.refreshConnectionTokenSilent();
+      return;
+    }
+
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    
+    this.debounceTimer = setTimeout(() => {
+      this.sync();
+    }, 3000); // 3-second debounce to aggregate contiguous changes
+  },
+
+  async refreshConnectionTokenSilent() {
+    if (!state.googleClientId) return;
+    
+    try {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: state.googleClientId,
+        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        prompt: 'none', // background refresh with no pop-up
+        callback: (tokenResponse) => {
+          if (tokenResponse.access_token) {
+            state.googleAccessToken = tokenResponse.access_token;
+            state.googleTokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
+            localStorage.setItem('tc_gdrive_token', state.googleAccessToken);
+            localStorage.setItem('tc_gdrive_token_expiry', state.googleTokenExpiry);
+            state.syncStatus = 'connected';
+            this.updateUI();
+            this.sync();
+          }
+        }
+      });
+      client.requestAccessToken({ prompt: 'none' });
+    } catch (e) {
+      console.warn("Silent token refresh failed, user consent required.", e);
+      state.syncStatus = 'error';
+      this.updateUI();
+    }
+  },
+
+  async sync(forceUpload = false) {
+    if (!state.googleAccessToken || Date.now() >= state.googleTokenExpiry) return;
+
+    const oldStatus = state.syncStatus;
+    state.syncStatus = 'syncing';
+    this.updateUI();
+
+    const headers = { Authorization: `Bearer ${state.googleAccessToken}` };
+
+    try {
+      // 1. Search for existing backup file in hidden appDataFolder
+      const searchRes = await fetch(
+        'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name="timecop_db.json"&fields=files(id,modifiedTime)',
+        { headers }
+      );
+      
+      if (!searchRes.ok) throw new Error("Failed to query appDataFolder");
+      
+      const searchData = await searchRes.json();
+      const files = searchData.files || [];
+      
+      const localData = {
+        projects: state.projects,
+        punches: state.punches,
+        activePunchId: state.activePunchId,
+        lastUpdated: state.lastUpdated
+      };
+
+      if (files.length === 0) {
+        // A. No remote backup exists yet. Upload the local data.
+        await this.uploadNewBackup(localData, headers);
+      } else {
+        const fileId = files[0].id;
+
+        // B. Remote backup exists. Download it and resolve conflict.
+        const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers });
+        if (!downloadRes.ok) throw new Error("Failed to download cloud backup");
+
+        const remoteData = await downloadRes.json();
+        const remoteUpdated = remoteData.lastUpdated || 0;
+
+        if (forceUpload || localData.lastUpdated > remoteUpdated) {
+          // Local is newer -> update the existing file in the cloud
+          await this.updateExistingBackup(fileId, localData, headers);
+        } else if (remoteUpdated > localData.lastUpdated) {
+          // Cloud is newer -> pull cloud data locally and refresh
+          state.projects = remoteData.projects || [];
+          state.punches = remoteData.punches || [];
+          state.activePunchId = remoteData.activePunchId || null;
+          state.lastUpdated = remoteUpdated;
+
+          localStorage.setItem('tc_last_updated', state.lastUpdated);
+          localStorage.setItem('timecop_db', JSON.stringify({
+            projects: state.projects,
+            punches: state.punches,
+            activePunchId: state.activePunchId
+          }));
+
+          UI.renderAll();
+          UI.showToast("Synchronized newest timeline logs from Google Drive!", "success");
+        }
+      }
+
+      state.syncStatus = 'connected';
+      this.updateUI();
+      
+      // Update sync timestamp inside drawer
+      const lastSyncEl = document.getElementById('gdrive-last-sync');
+      if (lastSyncEl) {
+        const now = new Date();
+        lastSyncEl.textContent = `Last Synced: Today at ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}`;
+      }
+
+    } catch (e) {
+      console.error("Cloud synchronization failed: ", e);
+      state.syncStatus = 'error';
+      this.updateUI();
+      UI.showToast("Cloud sync failed. Will retry later.", "error");
+    }
+  },
+
+  async uploadNewBackup(payload, headers) {
+    const metadata = {
+      name: 'timecop_db.json',
+      parents: ['appDataFolder']
+    };
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers,
+      body: form
+    });
+    
+    if (!res.ok) throw new Error("Upload failed");
+  },
+
+  async updateExistingBackup(fileId, payload, headers) {
+    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!res.ok) throw new Error("Patch update failed");
   }
 };
 

@@ -1572,3 +1572,91 @@ h1, h2, h3, h4, h5, h6 {
   color: #34d399 !important;
   background: rgba(16, 185, 129, 0.1) !important;
 }
+
+/* Cloud Sync Badge in Header */
+.cloud-sync-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+/* Badge States */
+.cloud-sync-badge.badge-disabled {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+.cloud-sync-badge.badge-disabled:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.cloud-sync-badge.badge-connected {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+.cloud-sync-badge.badge-connected:hover {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.cloud-sync-badge.badge-syncing {
+  background: rgba(0, 242, 254, 0.08);
+  border: 1px solid rgba(0, 242, 254, 0.2);
+  color: #00f2fe;
+  animation: pulse-sync 1.5s infinite ease-in-out;
+}
+.cloud-sync-badge.badge-syncing i {
+  animation: spin 2s infinite linear;
+}
+
+.cloud-sync-badge.badge-error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+@keyframes pulse-sync {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; filter: brightness(1.2); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* GDrive Sync Drawer Styling */
+.gdrive-sync-section {
+  background: rgba(255, 255, 255, 0.01) !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Accordion Help Styling */
+.help-accordion-header:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text-primary) !important;
+}
+.help-accordion-header:hover .accordion-arrow {
+  color: var(--text-primary);
+}
+
+.accordion-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.help-steps-list li strong {
+  color: var(--text-primary);
+}
+
+.help-steps-list a:hover {
+  filter: brightness(1.2);
+}
+

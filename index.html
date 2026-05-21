@@ -12,6 +12,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Identity Services client -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Style -->
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -40,6 +42,10 @@
 
       <!-- Utility Actions -->
       <div class="header-actions">
+        <div id="cloud-sync-badge" class="cloud-sync-badge badge-disabled" title="Google Drive Cloud Sync Status">
+          <i data-lucide="cloud-off"></i>
+          <span>Sync Off</span>
+        </div>
         <button id="btn-repair" class="btn btn-secondary-outline" title="Validate and Repair Punch Chain Continuity">
           <i data-lucide="wrench"></i>
           <span>Repair Chain</span>
@@ -301,6 +307,78 @@
           Since Timecop runs entirely client-side for maximum speed, all project data is safely stored in this browser's <code class="code-highlight">localStorage</code>. 
           Use this panel to back up your data or synchronize it with other devices.
         </p>
+
+        <!-- Google Drive Cloud Sync Section -->
+        <div class="sync-section gdrive-sync-section">
+          <h4><i data-lucide="cloud" class="section-icon"></i> Google Drive Auto-Sync</h4>
+          <p class="section-desc">Keep your punches automatically synced in the background across all your devices, 100% private in your own Google Drive.</p>
+          
+          <div id="gdrive-setup-area">
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label for="gdrive-client-id" style="font-size: 0.7rem; opacity: 0.8; display: block; margin-bottom: 0.25rem;">Google OAuth Client ID</label>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="password" id="gdrive-client-id" placeholder="Paste your Client ID here..." style="flex: 1; padding: 0.4rem 0.6rem; font-size: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.25); color: var(--text-primary); outline: none;">
+                <button id="btn-toggle-client-id-vis" class="btn btn-secondary-outline btn-icon" style="padding: 0.4rem; height: 32px; width: 32px;" type="button" title="Toggle Visibility"><i data-lucide="eye" style="width: 14px; height: 14px;"></i></button>
+              </div>
+            </div>
+            
+            <button id="btn-connect-gdrive" class="btn btn-primary btn-full" style="margin-top: 0.5rem;">
+              <i data-lucide="log-in"></i>
+              <span>Connect Google Drive</span>
+            </button>
+          </div>
+
+          <div id="gdrive-status-area" class="hidden">
+            <div class="gdrive-status-card" style="padding: 0.75rem; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 0.75rem;">
+              <div class="gdrive-user-info" style="display: flex; gap: 0.5rem; align-items: center;">
+                <i data-lucide="check-circle-2" style="width: 16px; height: 16px; color: #10b981;"></i>
+                <span id="gdrive-user-email" style="font-size: 0.75rem; font-weight: 500; color: var(--text-primary);">Connected</span>
+              </div>
+              <div id="gdrive-last-sync" style="font-size: 0.65rem; opacity: 0.6; margin-top: 0.25rem; margin-left: 1.5rem;">Last Synced: Never</div>
+            </div>
+            
+            <div class="sync-btn-row" style="display: flex; gap: 0.5rem;">
+              <button id="btn-sync-gdrive-now" class="btn btn-secondary-outline btn-half">
+                <i data-lucide="refresh-cw"></i>
+                <span>Sync Now</span>
+              </button>
+              <button id="btn-disconnect-gdrive" class="btn btn-danger-outline btn-half">
+                <i data-lucide="log-out"></i>
+                <span>Disconnect</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Help Guide Accordion -->
+          <div class="gdrive-help-accordion" style="margin-top: 0.75rem;">
+            <button id="btn-toggle-gdrive-help" class="help-accordion-header" style="width: 100%; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.7rem; color: var(--text-muted); cursor: pointer;" type="button">
+              <span style="display: flex; align-items: center; gap: 0.25rem;"><i data-lucide="help-circle" style="width: 13px; height: 13px;"></i> How to get your free Client ID</span>
+              <i data-lucide="chevron-down" class="accordion-arrow" style="width: 12px; height: 12px; transition: transform 0.3s ease;"></i>
+            </button>
+            <div id="gdrive-help-content" class="help-accordion-body hidden" style="padding: 0.75rem; font-size: 0.7rem; background: rgba(0,0,0,0.15); border-radius: 0 0 6px 6px; border: 1px solid rgba(255,255,255,0.04); border-top: none; line-height: 1.4;">
+              <ol class="help-steps-list" style="margin: 0; padding-left: 1.15rem; color: var(--text-muted);">
+                <li style="margin-bottom: 0.5rem;">Go to the free <a href="https://console.cloud.google.com/" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">Google Cloud Console</a> and sign in.</li>
+                <li style="margin-bottom: 0.5rem;">Create a new project (name it <strong>Timecop</strong>).</li>
+                <li style="margin-bottom: 0.5rem;">In the left navigation menu, go to <strong>APIs & Services</strong> > <strong>OAuth consent screen</strong>:
+                  <ul style="margin: 0.25rem 0; padding-left: 1.1rem; list-style-type: circle;">
+                    <li>Select <strong>External</strong> and click Create.</li>
+                    <li>Fill in required fields: <em>App Name</em> ("Timecop"), <em>User support email</em>, and <em>Developer contact info</em>.</li>
+                    <li>Click <strong>Save and Continue</strong> for all subsequent pages (Scopes and Test Users).</li>
+                    <li>Under <strong>Test Users</strong>, make sure to add your own Gmail address as a tester!</li>
+                  </ul>
+                </li>
+                <li style="margin-bottom: 0.5rem;">Go to the <strong>Credentials</strong> tab on the left > <strong>Create Credentials</strong> > <strong>OAuth client ID</strong>:
+                  <ul style="margin: 0.25rem 0; padding-left: 1.1rem; list-style-type: circle;">
+                    <li><strong>Application type</strong>: Web application</li>
+                    <li><strong>Name</strong>: Timecop Web App</li>
+                    <li><strong>Authorized JavaScript origins</strong>: Add both <code>https://millerja507.github.io</code> and <code>http://localhost:5173</code> (for local development).</li>
+                  </ul>
+                </li>
+                <li style="margin-bottom: 0.5rem;">Click <strong>Create</strong>, copy the generated <strong>Client ID</strong>, and paste it into the field above!</li>
+              </ol>
+            </div>
+          </div>
+        </div>
 
         <!-- Export Block -->
         <div class="sync-section">
