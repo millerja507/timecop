@@ -911,7 +911,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 1.5rem;
 }
 
-.punch-editor-filters {
+.punch-editor-filters, .weekly-summary-filters {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -924,6 +924,30 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   min-width: 80px;
   text-align: center;
+}
+
+.weekly-summary-range-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  min-width: 170px;
+  text-align: center;
+}
+
+.btn-this-week {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  height: auto;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.btn:disabled, .btn-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .punch-editor-table-container {

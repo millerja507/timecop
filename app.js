@@ -64,6 +64,7 @@ let state = {
   activePunchId: null,
   selectedDay: new Date(), // For the punch editor
   showArchived: false,
+  weeklyOffset: 0, // 0 = current week, -1 = last week, etc.
   googleClientId: localStorage.getItem('tc_gdrive_client_id') || '',
   googleAccessToken: localStorage.getItem('tc_gdrive_token') || '',
   googleTokenExpiry: parseInt(localStorage.getItem('tc_gdrive_token_expiry') || '0', 10),
@@ -614,6 +615,11 @@ const UI = {
     document.getElementById('btn-prev-day').addEventListener('click', () => this.changeEditorDay(-1));
     document.getElementById('btn-next-day').addEventListener('click', () => this.changeEditorDay(1));
     
+    // Week Paginations for Weekly Summary
+    document.getElementById('btn-prev-week').addEventListener('click', () => this.changeWeeklyOffset(-1));
+    document.getElementById('btn-next-week').addEventListener('click', () => this.changeWeeklyOffset(1));
+    document.getElementById('btn-this-week').addEventListener('click', () => this.resetWeeklyOffset());
+    
     document.getElementById('btn-add-punch').addEventListener('click', () => this.handleInsertRowClick());
     
     // Backup & Sync panel triggers
@@ -719,6 +725,35 @@ const UI = {
   
   formatDurationDecimal(ms) {
     return (ms / 3600000).toFixed(1) + 'h';
+  },
+  
+  formatWeekRange(startMs) {
+    const mon = new Date(startMs);
+    const sun = new Date(startMs + 6 * 24 * 60 * 60 * 1000);
+    
+    const optionsShort = { month: 'short', day: 'numeric' };
+    const optionsFull = { month: 'short', day: 'numeric', year: 'numeric' };
+    
+    if (mon.getFullYear() !== sun.getFullYear()) {
+      return `${mon.toLocaleDateString(undefined, optionsFull)} - ${sun.toLocaleDateString(undefined, optionsFull)}`;
+    } else if (mon.getMonth() !== sun.getMonth()) {
+      return `${mon.toLocaleDateString(undefined, optionsShort)} - ${sun.toLocaleDateString(undefined, optionsFull)}`;
+    } else {
+      return `${mon.toLocaleDateString(undefined, optionsShort)} - ${sun.getDate()}, ${sun.getFullYear()}`;
+    }
+  },
+  
+  changeWeeklyOffset(change) {
+    playSound('click');
+    state.weeklyOffset += change;
+    if (state.weeklyOffset > 0) state.weeklyOffset = 0;
+    this.renderWeeklySummary();
+  },
+  
+  resetWeeklyOffset() {
+    playSound('click');
+    state.weeklyOffset = 0;
+    this.renderWeeklySummary();
   },
   
   // --- Core Ticker Module ---
@@ -903,24 +938,48 @@ const UI = {
     const distanceToMon = currentDay === 0 ? 6 : currentDay - 1;
     
     const monday = new Date(now);
-    monday.setDate(now.getDate() - distanceToMon);
+    monday.setDate(now.getDate() - distanceToMon + (state.weeklyOffset * 7));
     monday.setHours(0, 0, 0, 0);
     const startOfWeek = monday.getTime();
+    const endOfWeek = startOfWeek + 7 * 24 * 60 * 60 * 1000;
     
-    // 1. Calculate Productive Time (excluding Idle)
+    // Update date range label in UI
+    const rangeLabel = document.getElementById('weekly-summary-range');
+    if (rangeLabel) {
+      if (state.weeklyOffset === 0) {
+        rangeLabel.textContent = "This Week";
+      } else {
+        rangeLabel.textContent = this.formatWeekRange(startOfWeek);
+      }
+    }
+    
+    // Enable/disable next week and this week buttons
+    const btnNext = document.getElementById('btn-next-week');
+    if (btnNext) {
+      btnNext.disabled = state.weeklyOffset >= 0;
+    }
+    const btnThis = document.getElementById('btn-this-week');
+    if (btnThis) {
+      btnThis.style.display = state.weeklyOffset === 0 ? 'none' : 'flex';
+    }
+    
+    // 1. Calculate Productive Time (excluding Idle) using interval overlap calculation
     let totalProductiveMs = 0;
     const dailyTotalsMs = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun
     const categoryTotalsMs = {};
     
     state.punches.forEach(p => {
-      const pStart = Math.max(p.startTime, startOfWeek);
+      const pStart = p.startTime;
       const pEnd = p.endTime === null ? Date.now() : p.endTime;
       
-      if (pEnd > pStart) {
-        const duration = pEnd - pStart;
+      const overlapStart = Math.max(pStart, startOfWeek);
+      const overlapEnd = Math.min(pEnd, endOfWeek);
+      
+      if (overlapEnd > overlapStart) {
+        const duration = overlapEnd - overlapStart;
         
         // Aggregate daily totals (Mon=0...Sun=6)
-        const punchDay = new Date(pStart);
+        const punchDay = new Date(overlapStart);
         let dayIndex = punchDay.getDay(); // Sun=0, Mon=1...
         dayIndex = dayIndex === 0 ? 6 : dayIndex - 1; // Mon=0...Sun=6
         
@@ -947,7 +1006,7 @@ const UI = {
     
     dailyTotalsMs.forEach((ms, index) => {
       const pct = (ms / maxDayVal) * 100;
-      const isToday = index === currentCalendarDay;
+      const isToday = state.weeklyOffset === 0 && index === currentCalendarDay;
       
       const col = document.createElement('div');
       col.className = `bar-column ${isToday ? 'today-column' : ''}`;
