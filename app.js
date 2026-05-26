@@ -289,8 +289,8 @@ const ChainController = {
     for (let i = 0; i < state.punches.length; i++) {
       let p = state.punches[i];
       
-      // Filter out invalid punches (startTime >= endTime)
-      if (p.startTime >= p.endTime) continue;
+      // Filter out invalid punches (startTime > endTime)
+      if (p.startTime > p.endTime) continue;
       
       if (repairedPunches.length === 0) {
         repairedPunches.push(p);
@@ -368,8 +368,8 @@ const ChainController = {
       endObj.setHours(eH, eM, 0, 0);
       newEndTime = endObj.getTime();
       
-      if (newStartTime >= newEndTime) {
-        UI.showToast("Start time must be before end time!", "error");
+      if (newStartTime > newEndTime) {
+        UI.showToast("Start time must be before or equal to end time!", "error");
         return;
       }
     }
@@ -400,13 +400,52 @@ const ChainController = {
     }
     
     playSound('click');
-    punch.projectId = 'idle'; // Reassign to Idle!
     
-    // Now compress contiguous Idle punches together
+    // Find punches of the current day
+    const day = state.selectedDay;
+    const startOfDay = new Date(day);
+    startOfDay.setHours(0, 0, 0, 0);
+    const startMs = startOfDay.getTime();
+    
+    const endOfDay = new Date(day);
+    endOfDay.setHours(23, 59, 59, 999);
+    const endMs = endOfDay.getTime();
+
+    // Filter and sort punches within the selected day
+    const punchesForDay = state.punches
+      .filter(p => {
+        const pEnd = p.endTime === null ? Date.now() : p.endTime;
+        return pEnd > startMs && p.startTime < endMs;
+      })
+      .sort((a, b) => a.startTime - b.startTime);
+
+    const idx = punchesForDay.findIndex(p => p.id === punchId);
+    
+    if (idx !== -1) {
+      const deletedPunch = punchesForDay[idx];
+      const preceding = punchesForDay[idx - 1];
+      const succeeding = punchesForDay[idx + 1];
+      
+      // Remove the punch from the global array
+      state.punches = state.punches.filter(p => p.id !== punchId);
+      
+      if (preceding && succeeding) {
+        preceding.endTime = succeeding.startTime;
+      } else if (preceding && !succeeding) {
+        preceding.endTime = deletedPunch.endTime;
+      } else if (!preceding && succeeding) {
+        succeeding.startTime = deletedPunch.startTime;
+      }
+    } else {
+      // Fallback: just remove from global array if not found in current day's view
+      state.punches = state.punches.filter(p => p.id !== punchId);
+    }
+    
+    // Let the chain heal gaps and overlaps!
     this.repairPunchChain(false);
     DB.save();
     UI.renderAll();
-    UI.showToast("Punch reassigned to Idle.");
+    UI.showToast("Punch deleted and timeline re-aligned.");
   },
   
   /**
@@ -427,8 +466,8 @@ const ChainController = {
     const startTime = startObj.getTime();
     const endTime = endObj.getTime();
     
-    if (startTime >= endTime) {
-      UI.showToast("Start time must be before end time!", "error");
+    if (startTime > endTime) {
+      UI.showToast("Start time must be before or equal to end time!", "error");
       return false;
     }
     
