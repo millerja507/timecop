@@ -68,7 +68,7 @@ let state = {
   googleTokenExpiry: parseInt(localStorage.getItem('tc_gdrive_token_expiry') || '0', 10),
   googleUserEmail: localStorage.getItem('tc_gdrive_user_email') || '',
   syncStatus: 'disabled', // 'disabled' | 'idle' | 'syncing' | 'connected' | 'error'
-  lastUpdated: parseInt(localStorage.getItem('tc_last_updated') || Date.now().toString(), 10),
+  lastUpdated: parseInt(localStorage.getItem('tc_last_updated') || '0', 10),
 };
 
 // Default Project Definitions
@@ -108,12 +108,14 @@ const DB = {
     
     // Safety check: ensure there is always an active punch running in the system
     this.ensureActivePunch();
-    this.save();
+    this.save(false);
   },
   
-  save() {
-    state.lastUpdated = Date.now();
-    localStorage.setItem('tc_last_updated', state.lastUpdated);
+  save(updateTimestamp = true) {
+    if (updateTimestamp) {
+      state.lastUpdated = Date.now();
+      localStorage.setItem('tc_last_updated', state.lastUpdated);
+    }
     localStorage.setItem('timecop_db', JSON.stringify({
       projects: state.projects,
       punches: state.punches,
