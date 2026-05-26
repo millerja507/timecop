@@ -58,6 +58,7 @@ function playSound(type) {
 
 // --- App State & Data Structures ---
 let state = {
+  version: '1.2.0',
   projects: [],
   punches: [],
   activePunchId: null,
@@ -511,6 +512,12 @@ const UI = {
     const soundPref = localStorage.getItem('timecop_sound');
     soundEnabled = soundPref !== 'false';
     this.updateSoundBadgeIcon();
+    
+    // Inject centralized application version
+    const versionLabels = document.querySelectorAll('.app-version-label');
+    versionLabels.forEach(el => {
+      el.textContent = 'v' + state.version;
+    });
     
     // Bind all static DOM Event Listeners
     this.bindEvents();
