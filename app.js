@@ -1651,6 +1651,26 @@ const GDriveSync = {
       state.syncStatus = 'disabled';
       this.updateUI();
     }
+
+    // Low-Cost Frequent Synchronization Triggers
+    // 1. Silent periodic background check every 30 seconds
+    setInterval(() => {
+      if (state.syncStatus === 'connected') {
+        this.sync();
+      }
+    }, 30000);
+
+    // 2. Perform a silent metadata check whenever the tab regains focus or visibility shifts to visible
+    window.addEventListener('focus', () => {
+      if (state.syncStatus === 'connected') {
+        this.sync();
+      }
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.syncStatus === 'connected') {
+        this.sync();
+      }
+    });
   },
 
   updateUI() {
@@ -1875,36 +1895,70 @@ const GDriveSync = {
 
       if (files.length === 0) {
         // A. No remote backup exists yet. Upload the local data.
-        await this.uploadNewBackup(localData, headers);
+        const fileMeta = await this.uploadNewBackup(localData, headers);
+        if (fileMeta && fileMeta.modifiedTime) {
+          localStorage.setItem('tc_gdrive_last_modified_time', fileMeta.modifiedTime);
+          localStorage.setItem('tc_last_sync_local_time', state.lastUpdated);
+        }
       } else {
         const fileId = files[0].id;
+        const remoteModifiedTime = files[0].modifiedTime;
+        
+        const lastSyncTime = localStorage.getItem('tc_gdrive_last_modified_time') || '';
+        const lastSyncLocalTime = parseInt(localStorage.getItem('tc_last_sync_local_time') || '0', 10);
+        
+        const hasLocalChanges = state.lastUpdated > lastSyncLocalTime;
+        const hasRemoteChanges = remoteModifiedTime !== lastSyncTime;
+        
+        // If there are no local changes and no remote changes, and sync was not forced, exit immediately!
+        if (!hasLocalChanges && !hasRemoteChanges && !forceUpload) {
+          state.syncStatus = 'connected';
+          this.updateUI();
+          return;
+        }
 
-        // B. Remote backup exists. Download it and resolve conflict.
-        const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers });
-        if (!downloadRes.ok) throw new Error("Failed to download cloud backup");
+        if (hasRemoteChanges || forceUpload) {
+          // B. Remote backup exists and has changes (or sync was forced). Download and resolve conflict.
+          const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers });
+          if (!downloadRes.ok) throw new Error("Failed to download cloud backup");
 
-        const remoteData = await downloadRes.json();
-        const remoteUpdated = remoteData.lastUpdated || 0;
+          const remoteData = await downloadRes.json();
+          const remoteUpdated = remoteData.lastUpdated || 0;
 
-        if (forceUpload || localData.lastUpdated > remoteUpdated) {
-          // Local is newer -> update the existing file in the cloud
-          await this.updateExistingBackup(fileId, localData, headers);
-        } else if (remoteUpdated > localData.lastUpdated) {
-          // Cloud is newer -> pull cloud data locally and refresh
-          state.projects = remoteData.projects || [];
-          state.punches = remoteData.punches || [];
-          state.activePunchId = remoteData.activePunchId || null;
-          state.lastUpdated = remoteUpdated;
+          if (forceUpload || localData.lastUpdated > remoteUpdated) {
+            // Local is newer -> update the existing file in the cloud
+            const fileMeta = await this.updateExistingBackup(fileId, localData, headers);
+            if (fileMeta && fileMeta.modifiedTime) {
+              localStorage.setItem('tc_gdrive_last_modified_time', fileMeta.modifiedTime);
+              localStorage.setItem('tc_last_sync_local_time', state.lastUpdated);
+            }
+          } else if (remoteUpdated > localData.lastUpdated) {
+            // Cloud is newer -> pull cloud data locally and refresh
+            state.projects = remoteData.projects || [];
+            state.punches = remoteData.punches || [];
+            state.activePunchId = remoteData.activePunchId || null;
+            state.lastUpdated = remoteUpdated;
 
-          localStorage.setItem('tc_last_updated', state.lastUpdated);
-          localStorage.setItem('timecop_db', JSON.stringify({
-            projects: state.projects,
-            punches: state.punches,
-            activePunchId: state.activePunchId
-          }));
+            localStorage.setItem('tc_last_updated', state.lastUpdated);
+            localStorage.setItem('timecop_db', JSON.stringify({
+              projects: state.projects,
+              punches: state.punches,
+              activePunchId: state.activePunchId
+            }));
 
-          UI.renderAll();
-          UI.showToast("Synchronized newest timeline logs from Google Drive!", "success");
+            localStorage.setItem('tc_gdrive_last_modified_time', remoteModifiedTime);
+            localStorage.setItem('tc_last_sync_local_time', state.lastUpdated);
+
+            UI.renderAll();
+            UI.showToast("Synchronized newest timeline logs from Google Drive!", "success");
+          }
+        } else if (hasLocalChanges) {
+          // Local is newer and cloud has no changes. Just upload local!
+          const fileMeta = await this.updateExistingBackup(fileId, localData, headers);
+          if (fileMeta && fileMeta.modifiedTime) {
+            localStorage.setItem('tc_gdrive_last_modified_time', fileMeta.modifiedTime);
+            localStorage.setItem('tc_last_sync_local_time', state.lastUpdated);
+          }
         }
       }
 
@@ -1936,7 +1990,7 @@ const GDriveSync = {
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     form.append('file', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
 
-    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime', {
       method: 'POST',
       headers,
       body: form
@@ -1953,10 +2007,12 @@ const GDriveSync = {
       } catch (e) {}
       throw new Error(errMsg);
     }
+    
+    return await res.json();
   },
 
   async updateExistingBackup(fileId, payload, headers) {
-    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&fields=id,modifiedTime`, {
       method: 'PATCH',
       headers: {
         ...headers,
@@ -1976,6 +2032,8 @@ const GDriveSync = {
       } catch (e) {}
       throw new Error(errMsg);
     }
+    
+    return await res.json();
   }
 };
 
