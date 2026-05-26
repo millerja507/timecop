@@ -1387,12 +1387,28 @@ const UI = {
     }
   },
   
-  copySyncTokenToClipboard() {
+  async copySyncTokenToClipboard() {
     playSound('click');
     const area = document.getElementById('sync-payload-textarea');
-    area.select();
-    document.execCommand('copy');
-    this.showToast("Sync token copied to clipboard! Paste it on another device.");
+    if (!area || !area.value || area.value === "Generating sync token...") {
+      this.showToast("No sync token generated yet!", "error");
+      return;
+    }
+    
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(area.value);
+        this.showToast("Sync token copied to clipboard! Paste it on another device.", "success");
+      } else {
+        area.select();
+        document.execCommand('copy');
+        this.showToast("Sync token copied to clipboard! Paste it on another device.", "success");
+      }
+    } catch (err) {
+      console.error("Clipboard copy failed:", err);
+      area.select();
+      this.showToast("Please select and copy the token text from the box manually.", "error");
+    }
   },
   
   pasteSyncTokenFromClipboard() {
@@ -1556,6 +1572,7 @@ const GDriveSync = {
       badge.addEventListener('click', () => {
         playSound('click');
         document.getElementById('sync-drawer').classList.remove('hidden');
+        UI.generateSyncToken();
       });
     }
 
@@ -1621,7 +1638,7 @@ const GDriveSync = {
     }
   },
 
-  async connect() {
+  connect() {
     playSound('click');
     const clientId = document.getElementById('gdrive-client-id').value.trim();
     if (!clientId) {
@@ -1755,7 +1772,12 @@ const GDriveSync = {
   },
 
   async sync(forceUpload = false) {
-    if (!state.googleAccessToken || Date.now() >= state.googleTokenExpiry) return;
+    if (!state.googleAccessToken || Date.now() >= state.googleTokenExpiry) {
+      if (forceUpload) {
+        UI.showToast("Please connect to Google Drive first!", "error");
+      }
+      return;
+    }
 
     const oldStatus = state.syncStatus;
     state.syncStatus = 'syncing';
