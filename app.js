@@ -1725,6 +1725,14 @@ const GDriveSync = {
       return;
     }
 
+    // Display warning notice that local data will be clobbered by the cloud backup
+    const msg = "WARNING: Enabling Google Drive Sync will make your cloud backup the absolute single source of truth.\n\n" +
+                "Any existing timeline logs or custom projects on this browser will be completely overwritten and clobbered by your Google Drive cloud backup (if one exists).\n\n" +
+                "Are you sure you want to proceed and connect Google Drive?";
+    if (!confirm(msg)) {
+      return;
+    }
+
     state.googleClientId = clientId;
     localStorage.setItem('tc_gdrive_client_id', clientId);
 
@@ -1776,8 +1784,8 @@ const GDriveSync = {
             this.updateUI();
             UI.showToast("Google Drive connected successfully!", "success");
 
-            // Perform initial full two-way sync
-            await this.sync(true);
+            // Perform initial full pull from cloud (unconditionally overwrite local data)
+            await this.sync(false, true);
           }
         },
       });
@@ -1850,7 +1858,7 @@ const GDriveSync = {
     }
   },
 
-  async sync(forceUpload = false) {
+  async sync(forceUpload = false, forceDownload = false) {
     if (!state.googleAccessToken || Date.now() >= state.googleTokenExpiry) {
       if (forceUpload) {
         UI.showToast("Please connect to Google Drive first!", "error");
@@ -1911,13 +1919,13 @@ const GDriveSync = {
         const hasRemoteChanges = remoteModifiedTime !== lastSyncTime;
         
         // If there are no local changes and no remote changes, and sync was not forced, exit immediately!
-        if (!hasLocalChanges && !hasRemoteChanges && !forceUpload) {
+        if (!hasLocalChanges && !hasRemoteChanges && !forceUpload && !forceDownload) {
           state.syncStatus = 'connected';
           this.updateUI();
           return;
         }
 
-        if (hasRemoteChanges || forceUpload) {
+        if (hasRemoteChanges || forceUpload || forceDownload) {
           // B. Remote backup exists and has changes (or sync was forced). Download and resolve conflict.
           const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers });
           if (!downloadRes.ok) throw new Error("Failed to download cloud backup");
@@ -1925,15 +1933,15 @@ const GDriveSync = {
           const remoteData = await downloadRes.json();
           const remoteUpdated = remoteData.lastUpdated || 0;
 
-          if (forceUpload || localData.lastUpdated > remoteUpdated) {
+          if (!forceDownload && (forceUpload || localData.lastUpdated > remoteUpdated)) {
             // Local is newer -> update the existing file in the cloud
             const fileMeta = await this.updateExistingBackup(fileId, localData, headers);
             if (fileMeta && fileMeta.modifiedTime) {
               localStorage.setItem('tc_gdrive_last_modified_time', fileMeta.modifiedTime);
               localStorage.setItem('tc_last_sync_local_time', state.lastUpdated);
             }
-          } else if (remoteUpdated > localData.lastUpdated) {
-            // Cloud is newer -> pull cloud data locally and refresh
+          } else if (forceDownload || remoteUpdated > localData.lastUpdated) {
+            // Cloud is newer OR we forced download -> pull cloud data locally and refresh
             state.projects = remoteData.projects || [];
             state.punches = remoteData.punches || [];
             state.activePunchId = remoteData.activePunchId || null;
