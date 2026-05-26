@@ -356,18 +356,26 @@ const ChainController = {
     
     const dayDate = new Date(punch.startTime);
     
-    // Parse start time "HH:MM"
-    const [sH, sM] = newStartStr.split(':').map(Number);
+    // Parse start time
+    const startParsed = UI.parseTimeStr(newStartStr);
+    if (!startParsed) {
+      UI.showToast("Invalid start time format. Use HH:MM or HHMM", "error");
+      return;
+    }
     const startObj = new Date(dayDate);
-    startObj.setHours(sH, sM, 0, 0);
+    startObj.setHours(startParsed.hours, startParsed.minutes, 0, 0);
     const newStartTime = startObj.getTime();
     
     let newEndTime = null;
     if (punch.endTime !== null && newEndStr) {
-      // Parse end time "HH:MM"
-      const [eH, eM] = newEndStr.split(':').map(Number);
+      // Parse end time
+      const endParsed = UI.parseTimeStr(newEndStr);
+      if (!endParsed) {
+        UI.showToast("Invalid end time format. Use HH:MM or HHMM", "error");
+        return;
+      }
       const endObj = new Date(dayDate);
-      endObj.setHours(eH, eM, 0, 0);
+      endObj.setHours(endParsed.hours, endParsed.minutes, 0, 0);
       newEndTime = endObj.getTime();
       
       if (newStartTime > newEndTime) {
@@ -456,14 +464,20 @@ const ChainController = {
    */
   insertCustomPunch(projectId, startStr, endStr) {
     const day = state.selectedDay;
-    const [sH, sM] = startStr.split(':').map(Number);
-    const [eH, eM] = endStr.split(':').map(Number);
+    
+    const startParsed = UI.parseTimeStr(startStr);
+    const endParsed = UI.parseTimeStr(endStr);
+    
+    if (!startParsed || !endParsed) {
+      UI.showToast("Invalid time format. Use HH:MM or HHMM", "error");
+      return false;
+    }
     
     const startObj = new Date(day);
-    startObj.setHours(sH, sM, 0, 0);
+    startObj.setHours(startParsed.hours, startParsed.minutes, 0, 0);
     
     const endObj = new Date(day);
-    endObj.setHours(eH, eM, 0, 0);
+    endObj.setHours(endParsed.hours, endParsed.minutes, 0, 0);
     
     const startTime = startObj.getTime();
     const endTime = endObj.getTime();
@@ -650,6 +664,44 @@ const UI = {
     const h = String(d.getHours()).padStart(2, '0');
     const m = String(d.getMinutes()).padStart(2, '0');
     return `${h}:${m}`;
+  },
+  
+  parseTimeStr(str) {
+    if (!str) return null;
+    const clean = str.replace(/\s+/g, '');
+    
+    // Pattern 1: HH:MM or H:MM
+    if (clean.includes(':')) {
+      const parts = clean.split(':');
+      if (parts.length === 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && h >= 0 && h < 24 && !isNaN(m) && m >= 0 && m < 60) {
+          return { hours: h, minutes: m };
+        }
+      }
+      return null;
+    }
+    
+    // Pattern 2: HHMM or HMM (only digits)
+    if (/^\d{3,4}$/.test(clean)) {
+      let hStr, mStr;
+      if (clean.length === 3) {
+        hStr = clean.substring(0, 1);
+        mStr = clean.substring(1);
+      } else {
+        hStr = clean.substring(0, 2);
+        mStr = clean.substring(2);
+      }
+      
+      const h = parseInt(hStr, 10);
+      const m = parseInt(mStr, 10);
+      if (!isNaN(h) && h >= 0 && h < 24 && !isNaN(m) && m >= 0 && m < 60) {
+        return { hours: h, minutes: m };
+      }
+    }
+    
+    return null;
   },
   
   formatDuration(ms) {
@@ -1142,12 +1194,12 @@ const UI = {
     playSound('click');
     
     // Prompt custom quick inserts on this day
-    const timeStr = prompt("Enter insertion Start & End Times (24h format HH:MM - HH:MM), e.g. 10:00 - 11:30");
+    const timeStr = prompt("Enter insertion Start & End Times (24h format HH:MM - HH:MM or HHMM - HHMM), e.g. 10:00 - 11:30 or 1000 - 1130");
     if (!timeStr) return;
     
     const parts = timeStr.split('-').map(s => s.trim());
     if (parts.length !== 2) {
-      this.showToast("Invalid format. Use HH:MM - HH:MM", "error");
+      this.showToast("Invalid format. Use HH:MM - HH:MM or HHMM - HHMM", "error");
       return;
     }
     
