@@ -16,8 +16,8 @@
   <!-- Google Identity Services client -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Style -->
-  <script type="module" crossorigin src="./assets/index-6Ztfzek6.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-C-UGQKLn.css">
+  <script type="module" crossorigin src="./assets/index-Ia52vEHd.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Btvk81-G.css">
 </head>
 <body>
 
@@ -135,7 +135,13 @@
           <div class="card-header">
             <div>
               <h2 class="card-title">Weekly Summary</h2>
-              <p class="card-subtitle">Productivity and daily totals (excluding Idle)</p>
+              <p class="card-subtitle" style="margin-bottom: 0.5rem;">Productivity and daily totals (excluding Idle)</p>
+              <div class="weekly-summary-filters">
+                <button id="btn-prev-week" class="btn btn-secondary-outline btn-icon" title="Previous Week"><i data-lucide="chevron-left"></i></button>
+                <span id="weekly-summary-range" class="weekly-summary-range-label">This Week</span>
+                <button id="btn-next-week" class="btn btn-secondary-outline btn-icon" title="Next Week"><i data-lucide="chevron-right"></i></button>
+                <button id="btn-this-week" class="btn btn-secondary-outline btn-sm btn-this-week" title="Jump to Current Week">This Week</button>
+              </div>
             </div>
             <div class="total-hours-container">
               <span class="total-hours-number" id="stats-total-hours">0.0h</span>
