@@ -58,7 +58,7 @@ function playSound(type) {
 
 // --- App State & Data Structures ---
 let state = {
-  version: '1.4.3',
+  version: '1.4.4',
   projects: [],
   punches: [],
   activePunchId: null,
@@ -727,6 +727,35 @@ const UI = {
     return (ms / 3600000).toFixed(1) + 'h';
   },
   
+  getCategoryColor(category) {
+    // Curated standard palette for well-known categories
+    const catColors = {
+      'development': '#00f2fe',
+      'design': '#f857a6',
+      'meeting': '#fda085',
+      'operations': '#38ef7d',
+      'personal': '#a18cd1',
+      'system': '#475569'
+    };
+
+    const key = String(category).trim().toLowerCase();
+    if (catColors[key]) {
+      return catColors[key];
+    }
+
+    // Dynamic generation for custom categories (e.g. "General") using string hashing
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = key.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Convert hash to hue (0 - 360)
+    const hue = Math.abs(hash) % 360;
+    
+    // Saturation 80%, Lightness 60% for vibrant, visible colors matching the theme
+    return `hsl(${hue}, 80%, 60%)`;
+  },
+  
   formatWeekRange(startMs) {
     const mon = new Date(startMs);
     const sun = new Date(startMs + 6 * 24 * 60 * 60 * 1000);
@@ -1043,17 +1072,6 @@ const UI = {
       return;
     }
     
-    // Palette Gradients to matching category dots
-    const catColors = {
-      'Development': '#00f2fe',
-      'Design': '#f857a6',
-      'Meeting': '#fda085',
-      'Operations': '#38ef7d',
-      'Personal': '#a18cd1',
-      'System': '#475569'
-    };
-    const defaultColor = '#94a3b8';
-    
     let cumAngle = 0;
     
     categories.forEach((cat, index) => {
@@ -1066,7 +1084,7 @@ const UI = {
       const angle = cumAngle;
       cumAngle += fraction * 360;
       
-      const color = catColors[cat] || defaultColor;
+      const color = this.getCategoryColor(cat);
       
       // Draw segment path
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
