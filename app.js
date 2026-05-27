@@ -58,7 +58,7 @@ function playSound(type) {
 
 // --- App State & Data Structures ---
 let state = {
-  version: '1.4.4',
+  version: '1.4.5',
   projects: [],
   punches: [],
   activePunchId: null,
@@ -1072,6 +1072,22 @@ const UI = {
       return;
     }
     
+    // Hand-curated palette of 12 highly distinct, maximum contrast colors
+    const palette = [
+      '#00f2fe', // 0: Electric Cyan
+      '#f857a6', // 1: Vibrant Pink
+      '#fda085', // 2: Warm Orange
+      '#38ef7d', // 3: Lime Green
+      '#a18cd1', // 4: Lavender Purple
+      '#ffeb3b', // 5: Bright Yellow
+      '#2979ff', // 6: Royal Blue
+      '#ff5722', // 7: Deep Orange
+      '#d500f9', // 8: Hot Purple
+      '#00b0ff', // 9: Light Blue
+      '#ff1744', // 10: Electric Red
+      '#00e676'  // 11: Bright Green
+    ];
+    
     let cumAngle = 0;
     
     categories.forEach((cat, index) => {
@@ -1084,7 +1100,8 @@ const UI = {
       const angle = cumAngle;
       cumAngle += fraction * 360;
       
-      const color = this.getCategoryColor(cat);
+      // Assign sequentially from high-contrast distinct palette to guarantee 100% differentiation
+      const color = palette[index % palette.length];
       
       // Draw segment path
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
