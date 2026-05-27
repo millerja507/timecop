@@ -58,7 +58,7 @@ function playSound(type) {
 
 // --- App State & Data Structures ---
 let state = {
-  version: '1.4.6',
+  version: '1.4.7',
   projects: [],
   punches: [],
   activePunchId: null,
@@ -1059,7 +1059,14 @@ const UI = {
     svg.innerHTML = "";
     legend.innerHTML = "";
     
-    const categories = Object.keys(categoryTotals);
+    const categories = Object.keys(categoryTotals).sort((a, b) => {
+      const msA = categoryTotals[a];
+      const msB = categoryTotals[b];
+      if (msB !== msA) {
+        return msB - msA;
+      }
+      return a.localeCompare(b);
+    });
     let totalMs = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
     
     if (totalMs === 0) {
