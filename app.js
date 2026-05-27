@@ -58,7 +58,7 @@ function playSound(type) {
 
 // --- App State & Data Structures ---
 let state = {
-  version: '1.4.1',
+  version: '1.4.2',
   projects: [],
   punches: [],
   activePunchId: null,

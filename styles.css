@@ -952,7 +952,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .punch-editor-table-container {
   max-height: 300px;
-  overflow-y: auto;
+  overflow: auto;
   border: 1px solid var(--border-glass);
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.15);
@@ -1464,6 +1464,15 @@ h1, h2, h3, h4, h5, h6 {
     padding: 0.75rem;
   }
   
+  .card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .brand-tagline {
+    display: none;
+  }
+  
   .app-header {
     flex-direction: column;
     gap: 0.75rem;
@@ -1477,6 +1486,24 @@ h1, h2, h3, h4, h5, h6 {
   
   .header-actions {
     justify-content: center;
+  }
+  
+  .header-actions .btn span {
+    display: none;
+  }
+  
+  .header-actions .btn {
+    padding: 0.5rem;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    height: 36px;
+    width: 36px;
+  }
+  
+  .header-actions .btn i, .header-actions .btn svg {
+    margin: 0;
+    width: 16px;
+    height: 16px;
   }
   
   .weekly-metrics-grid {
@@ -1717,5 +1744,39 @@ h1, h2, h3, h4, h5, h6 {
 
 .app-main-footer span {
   white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .donut-chart-wrapper {
+    flex-direction: column;
+    height: auto;
+    gap: 1rem;
+    align-items: center;
+  }
+  #donut-chart-svg {
+    width: 110px;
+    height: 110px;
+  }
+  .donut-legend {
+    width: 100%;
+    max-height: 120px;
+  }
+  .weekly-summary-filters {
+    flex-wrap: wrap;
+  }
+  .weekly-summary-range-label {
+    min-width: 140px;
+    font-size: 0.8rem;
+  }
+  .btn-this-week {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.45rem;
+    min-height: 24px;
+  }
+  .drawer-content {
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    padding: 1rem !important;
+  }
 }
 
