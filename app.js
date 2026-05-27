@@ -58,7 +58,7 @@ function playSound(type) {
 
 // --- App State & Data Structures ---
 let state = {
-  version: '1.4.0',
+  version: '1.4.1',
   projects: [],
   punches: [],
   activePunchId: null,
@@ -1694,17 +1694,26 @@ const GDriveSync = {
       });
     }
 
-    // Recover previous active connection if tokens exist and aren't expired
-    if (state.googleClientId && state.googleAccessToken) {
-      if (Date.now() < state.googleTokenExpiry) {
-        state.syncStatus = 'connected';
-        this.updateUI();
-        // Silent initial sync
-        this.sync();
+    // Recover previous active connection (with silent auto-recovery of expired tokens)
+    if (state.googleClientId) {
+      const attemptRecovery = () => {
+        if (state.googleAccessToken && Date.now() < state.googleTokenExpiry) {
+          state.syncStatus = 'connected';
+          this.updateUI();
+          // Silent initial sync
+          this.sync();
+        } else {
+          // Token expired or missing, silently request a new one in background
+          this.refreshConnectionTokenSilent();
+        }
+      };
+
+      if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+        attemptRecovery();
       } else {
-        // Token expired, silently request a new one in background or set status to error/disconnected
-        state.syncStatus = 'disabled';
-        this.updateUI();
+        window.onGSILoad = () => {
+          attemptRecovery();
+        };
       }
     } else {
       state.syncStatus = 'disabled';
@@ -1712,22 +1721,34 @@ const GDriveSync = {
     }
 
     // Low-Cost Frequent Synchronization Triggers
-    // 1. Silent periodic background check every 30 seconds
+    // 1. Silent periodic background check every 30 seconds (with automatic silent refresh if token is expired)
     setInterval(() => {
       if (state.syncStatus === 'connected') {
-        this.sync();
+        if (Date.now() >= state.googleTokenExpiry) {
+          this.refreshConnectionTokenSilent();
+        } else {
+          this.sync();
+        }
       }
     }, 30000);
 
     // 2. Perform a silent metadata check whenever the tab regains focus or visibility shifts to visible
     window.addEventListener('focus', () => {
       if (state.syncStatus === 'connected') {
-        this.sync();
+        if (Date.now() >= state.googleTokenExpiry) {
+          this.refreshConnectionTokenSilent();
+        } else {
+          this.sync();
+        }
       }
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && state.syncStatus === 'connected') {
-        this.sync();
+        if (Date.now() >= state.googleTokenExpiry) {
+          this.refreshConnectionTokenSilent();
+        } else {
+          this.sync();
+        }
       }
     });
   },
@@ -1892,12 +1913,26 @@ const GDriveSync = {
   async refreshConnectionTokenSilent() {
     if (!state.googleClientId) return;
     
+    // Verify GIS client library is loaded before attempting
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+      console.warn("Silent token refresh aborted: Google Identity Services script not loaded yet.");
+      state.syncStatus = 'disabled';
+      this.updateUI();
+      return;
+    }
+    
     try {
       const client = google.accounts.oauth2.initTokenClient({
         client_id: state.googleClientId,
         scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email',
         prompt: 'none', // background refresh with no pop-up
         callback: (tokenResponse) => {
+          if (tokenResponse.error) {
+            console.warn("Silent token refresh callback returned error:", tokenResponse.error);
+            state.syncStatus = 'error';
+            this.updateUI();
+            return;
+          }
           if (tokenResponse.access_token) {
             state.googleAccessToken = tokenResponse.access_token;
             state.googleTokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);

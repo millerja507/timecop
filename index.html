@@ -14,7 +14,7 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Google Identity Services client -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" onload="if (window.onGSILoad) window.onGSILoad()" async defer></script>
   <!-- Style -->
   <link rel="stylesheet" href="./styles.css">
 </head>
